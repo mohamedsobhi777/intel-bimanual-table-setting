@@ -2,6 +2,8 @@
 from pathlib import Path
 import math
 import xml.etree.ElementTree as ET
+import mujoco
+from scene import HOME_POSE, JOINTS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -27,6 +29,20 @@ def build():
             "fromto": f"{start} {end}", "size": "0.004", "mass": "0.004",
             "rgba": "0.12 0.43 0.72 1"})
     target = ROOT / "scenes/scene.xml"
+    ET.indent(tree, space="  ")
+    tree.write(target, encoding="unicode")
+    # Resolve attachment ordering by joint/actuator name, not hard-coded indices.
+    model = mujoco.MjModel.from_xml_path(str(target))
+    data = mujoco.MjData(model)
+    for arm in ("left", "right"):
+        for joint, value in zip(JOINTS, HOME_POSE):
+            data.joint(f"{arm}/{joint}").qpos[0] = value
+            data.ctrl[model.actuator(f"{arm}/{joint}").id] = value
+    keyframes = ET.SubElement(tree.getroot(), "keyframe")
+    ET.SubElement(keyframes, "key", {
+        "name": "home", "qpos": " ".join(format(v, ".9g") for v in data.qpos),
+        "ctrl": " ".join(format(v, ".9g") for v in data.ctrl),
+    })
     ET.indent(tree, space="  ")
     tree.write(target, encoding="unicode")
     return target

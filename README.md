@@ -59,7 +59,11 @@ initial manipulation assets, not high-fidelity kitchenware or fluid simulation.
 
 `scenes/scene.xml` is the ready-to-load scene, using native MJCF model attachment
 to instantiate the upstream robot twice. It can also be opened in MuJoCo tools.
-The launcher initializes the arms to an open-gripper home pose. For programmatic use:
+The launcher loads the `home` keyframe: raised, open grippers separated by about
+41 cm. Native viewer resets also restore this pose and its matching servo targets.
+When opening the XML directly in other MuJoCo tools, load the `home` keyframe
+before running physics; the all-zero joint pose makes the opposing arms overlap.
+For programmatic use:
 
 ```python
 from scripts.scene import load
@@ -80,6 +84,8 @@ uv run python scripts/build_scene.py
 
 `--check` simulates ten deterministic seeds for five simulated seconds each and
 checks actuator/state dimensions, camera availability, finite state, MuJoCo warnings,
+arm clearance and absence of inter-arm contacts at every timestep, including a
+reset followed by a ten-second hold,
 object retention on the table/in the drawer, and drawer travel bounds. Seeds vary
 object x/y positions by up to 8 mm. A separate check applies 3 N directly to the
 drawer joint to verify opening and closing; it does not claim robot manipulation.

@@ -9,27 +9,42 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
 JOINTS = ("shoulder_pan", "shoulder_lift", "elbow_flex", "wrist_flex", "wrist_roll", "gripper")
+HOME_POSE = (0, -1.0, 0, 0, 0, 0.7)
 
 
 def load(seed=0):
     model = mujoco.MjModel.from_xml_path(str(ROOT / "scenes/scene.xml"))
     data = mujoco.MjData(model)
-    # Neutral, open-gripper home; controls and joint positions must agree at reset.
-    for arm in ("left", "right"):
-        for joint, value in zip(JOINTS, (0, -0.7, 0.7, 0.6, 0, 0.7)):
-            data.joint(f"{arm}/{joint}").qpos[0] = value
-            data.ctrl[model.actuator(f"{arm}/{joint}").id] = value
+    reset(model, data, seed)
+    return model, data
+
+
+def reset(model, data, seed=0):
+    """Restore both joint positions and servo targets, never the crossing zero pose."""
+    mujoco.mj_resetDataKeyframe(model, data, model.key("home").id)
     rng = np.random.default_rng(seed)
     # Small, non-overlapping reset variation; not the full challenge randomization.
     for name in ("plate", "cup", "bottle", "fork", "spoon"):
         data.joint(f"{name}_free").qpos[:2] += rng.uniform(-0.008, 0.008, 2)
     mujoco.mj_forward(model, data)
-    return model, data
 
 
-def settle(model, data, steps):
+def check_arm_clearance(model, data):
+    left = data.site("left/gripperframe").xpos
+    right = data.site("right/gripperframe").xpos
+    assert right[0] - left[0] > 0.30, ("Home grippers too close", left, right)
+    for contact in data.contact:
+        a = model.body(int(model.geom_bodyid[contact.geom1])).name
+        b = model.body(int(model.geom_bodyid[contact.geom2])).name
+        assert not ((a.startswith("left/") and b.startswith("right/")) or
+                    (a.startswith("right/") and b.startswith("left/"))), (a, b)
+
+
+def settle(model, data, steps, verify_arms=False):
     for _ in range(steps):
         mujoco.mj_step(model, data)
+        if verify_arms:
+            check_arm_clearance(model, data)
         if not np.isfinite(data.qpos).all() or not np.isfinite(data.qvel).all():
             raise RuntimeError("Non-finite simulation state")
     if any(w.number for w in data.warning):
@@ -58,7 +73,8 @@ def main():
     if args.check:
         for seed in range(10):
             model, data = load(seed)
-            settle(model, data, 2500)
+            check_arm_clearance(model, data)
+            settle(model, data, 2500, verify_arms=True)
             check(model, data)
             print(json.dumps({"seed": seed, "seconds": round(data.time, 3), "actuators": model.nu, "status": "passed"}))
         # Test the passive drawer mechanism directly, independent of a robot policy.
@@ -71,6 +87,12 @@ def main():
         assert data.joint("drawer_slide").qpos[0] < 0.02, "Drawer cannot close"
         data.qfrc_applied[dof] = 0
         print(json.dumps({"drawer_open_close": "passed", "applied_force_N": 3}))
+        # Exercise the same recovery used after the viewer's built-in reset.
+        mujoco.mj_resetData(model, data)
+        reset(model, data)
+        check_arm_clearance(model, data)
+        settle(model, data, 5000, verify_arms=True)
+        print(json.dumps({"home_reset_and_10s_hold": "passed"}))
         return
     model, data = load(args.seed)
     settle(model, data, 500)
@@ -92,7 +114,13 @@ def main():
         while viewer.is_running():
             start = time.monotonic()
             mujoco.mj_step(model, data)
+            simulation_time = data.time
             viewer.sync()
+            # Backspace / Reset in the native viewer restores qpos0 and zero
+            # servo targets. Replace that state before the next physics step.
+            if data.time < simulation_time:
+                with viewer.lock():
+                    reset(model, data, args.seed)
             time.sleep(max(0, model.opt.timestep - (time.monotonic() - start)))
 
 
