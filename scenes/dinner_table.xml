@@ -1,0 +1,94 @@
+<mujoco model="dual_so101_dinner_table">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.002" integrator="implicitfast" cone="elliptic" iterations="50"/>
+  <visual>
+    <global offwidth="1280" offheight="960"/>
+    <quality shadowsize="4096"/>
+    <headlight ambient="0.35 0.35 0.35" diffuse="0.6 0.6 0.6"/>
+  </visual>
+  <statistic center="0 0 0.82" extent="1.2"/>
+  <default>
+    <geom friction="0.8 0.005 0.0001" condim="4" solref="0.01 1"/>
+    <default class="ceramic"><geom rgba="0.88 0.90 0.86 1" density="500"/></default>
+    <default class="metal"><geom rgba="0.6 0.65 0.7 1" density="1200"/></default>
+  </default>
+  <asset>
+    <model name="so101" file="../assets/robots/so101/so101.xml"/>
+    <texture name="floor" type="2d" builtin="checker" rgb1="0.16 0.19 0.22" rgb2="0.20 0.23 0.26" width="512" height="512"/>
+    <material name="floor" texture="floor" texrepeat="4 4" reflectance="0.08"/>
+    <material name="wood" rgba="0.49 0.32 0.20 1"/>
+  </asset>
+  <worldbody>
+    <light pos="0 -0.5 2.5" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <light pos="0.5 0.5 2" dir="-0.2 -0.2 -1" diffuse="0.5 0.5 0.5" castshadow="false"/>
+    <geom name="floor" type="plane" size="3 3 0.1" material="floor"/>
+    <!-- Table top is z=0.72m. Arm bases face each other across x. -->
+    <geom name="table_top" type="box" pos="0 0 0.695" size="0.52 0.36 0.025" material="wood"/>
+    <geom type="box" pos="-0.46 -0.30 0.335" size="0.025 0.025 0.335" material="wood"/>
+    <geom type="box" pos="0.46 -0.30 0.335" size="0.025 0.025 0.335" material="wood"/>
+    <geom type="box" pos="-0.46 0.30 0.335" size="0.025 0.025 0.335" material="wood"/>
+    <geom type="box" pos="0.46 0.30 0.335" size="0.025 0.025 0.335" material="wood"/>
+    <frame name="left_mount" pos="-0.34 0 0.72">
+      <attach model="so101" body="base" prefix="left/"/>
+    </frame>
+    <frame name="right_mount" pos="0.34 0 0.72" quat="0 0 0 1">
+      <attach model="so101" body="base" prefix="right/"/>
+    </frame>
+    <camera name="overview" pos="1.1 -1.35 1.65" xyaxes="0.775 0.632 0 -0.27 0.33 0.905" fovy="48"/>
+    <camera name="overhead" pos="0 0 1.8" xyaxes="1 0 0 0 1 0" fovy="60"/>
+    <camera name="front" pos="0 -1.3 1.2" xyaxes="1 0 0 0 0.35 0.94" fovy="48"/>
+    <!-- Non-colliding goal markers, separate from physical objects. -->
+    <site name="plate_goal" type="cylinder" pos="0 -0.13 0.721" size="0.08 0.0005" rgba="0.75 0.85 0.72 0.4"/>
+    <site name="cup_goal" type="cylinder" pos="0.14 -0.11 0.721" size="0.035 0.0005" rgba="0.35 0.65 0.95 0.4"/>
+    <site name="fork_goal" type="box" pos="-0.12 -0.13 0.721" size="0.012 0.06 0.0005" rgba="0.8 0.8 0.8 0.4"/>
+    <site name="spoon_goal" type="box" pos="0.10 -0.13 0.721" size="0.012 0.06 0.0005" rgba="0.8 0.8 0.8 0.4"/>
+    <site name="handoff" pos="0 0 0.96" size="0.008" rgba="0.2 0.9 0.5 0.5" group="3"/>
+    <!-- Tabletop drawer cabinet: slides toward the front (-y). -->
+    <body name="cabinet" pos="0 0.22 0.72">
+      <geom name="cabinet_back" type="box" pos="0 0.086 0.055" size="0.14 0.008 0.055" material="wood"/>
+      <geom type="box" pos="-0.14 0 0.055" size="0.008 0.09 0.055" material="wood"/>
+      <geom type="box" pos="0.14 0 0.055" size="0.008 0.09 0.055" material="wood"/>
+      <geom type="box" pos="0 0 0.114" size="0.148 0.094 0.006" material="wood"/>
+      <body name="drawer" pos="0 0 0.015">
+        <joint name="drawer_slide" type="slide" axis="0 -1 0" range="0 0.14" damping="2" frictionloss="0.3"/>
+        <geom name="drawer_floor" type="box" size="0.128 0.077 0.006" mass="0.15" rgba="0.65 0.47 0.3 1"/>
+        <geom type="box" pos="0 -0.083 0.033" size="0.130 0.006 0.04" mass="0.07" material="wood"/>
+        <geom type="box" pos="-0.124 0 0.021" size="0.004 0.077 0.015" mass="0.015" material="wood"/>
+        <geom type="box" pos="0.124 0 0.021" size="0.004 0.077 0.015" mass="0.015" material="wood"/>
+        <geom type="box" pos="0 0.073 0.021" size="0.124 0.004 0.015" mass="0.015" material="wood"/>
+        <geom name="drawer_handle" type="capsule" fromto="-0.04 -0.108 0.037 0.04 -0.108 0.037" size="0.007" mass="0.02" rgba="0.15 0.17 0.19 1"/>
+        <geom type="capsule" fromto="-0.04 -0.083 0.037 -0.04 -0.108 0.037" size="0.005" mass="0.005"/>
+        <geom type="capsule" fromto="0.04 -0.083 0.037 0.04 -0.108 0.037" size="0.005" mass="0.005"/>
+        <site name="drawer_grasp" pos="0 -0.108 0.037" size="0.006" group="3"/>
+      </body>
+    </body>
+    <body name="plate" pos="-0.13 -0.12 0.727" childclass="ceramic">
+      <freejoint name="plate_free"/>
+      <geom name="plate_base" type="cylinder" size="0.075 0.005" mass="0.12"/>
+      <site name="plate_center" size="0.003" group="3"/>
+    </body>
+    <!-- Hollow cup assembled from a base and wall segments by build_scene.py. -->
+    <body name="cup" pos="0.13 0.02 0.726">
+      <freejoint name="cup_free"/>
+      <geom name="cup_base" type="cylinder" size="0.025 0.004" mass="0.025" rgba="0.12 0.43 0.72 1"/>
+    </body>
+    <body name="fork" pos="-0.055 0.22 0.747" childclass="metal">
+      <freejoint name="fork_free"/>
+      <geom name="fork_handle" type="box" pos="0 -0.014 0" size="0.005 0.035 0.003" mass="0.012"/>
+      <geom type="box" pos="0 0.025 0" size="0.014 0.007 0.003" mass="0.004"/>
+      <geom type="box" pos="-0.010 0.042 0" size="0.002 0.012 0.003" mass="0.001"/>
+      <geom type="box" pos="0 0.042 0" size="0.002 0.012 0.003" mass="0.001"/>
+      <geom type="box" pos="0.010 0.042 0" size="0.002 0.012 0.003" mass="0.001"/>
+    </body>
+    <body name="spoon" pos="0.055 0.22 0.75" childclass="metal">
+      <freejoint name="spoon_free"/>
+      <geom name="spoon_handle" type="box" pos="0 -0.015 0" size="0.005 0.035 0.003" mass="0.012"/>
+      <geom name="spoon_bowl" type="ellipsoid" pos="0 0.034 0" size="0.014 0.022 0.004" mass="0.009"/>
+    </body>
+    <body name="bottle" pos="0.24 -0.20 0.726">
+      <freejoint name="bottle_free"/>
+      <geom name="bottle_body" type="cylinder" pos="0 0 0.045" size="0.022 0.045" mass="0.1" rgba="0.2 0.65 0.48 1"/>
+      <geom type="cylinder" pos="0 0 0.105" size="0.010 0.015" mass="0.02" rgba="0.2 0.65 0.48 1"/>
+    </body>
+  </worldbody>
+</mujoco>
